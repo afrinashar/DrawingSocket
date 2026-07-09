@@ -13,7 +13,7 @@ import { TbLineDashed } from "react-icons/tb";
 import { TfiLineDotted } from "react-icons/tfi";
 import { FaPencil } from "react-icons/fa6";
 import { AiOutlineDelete } from "react-icons/ai";
-
+import Apps from "./Apps"
 const socket = io('https://drawingsocket-backend.onrender.com/', { transports: ['websocket'] });
 
 const App = () => {
@@ -265,7 +265,7 @@ const App = () => {
     }
   };
 
-  return (
+  return (<>
     <div className="App d-flex">
  
            <div className="toolbar d-flex flex-column">
@@ -309,6 +309,8 @@ const App = () => {
       />
       
     </div>
+
+     </>
   );
 };
 
