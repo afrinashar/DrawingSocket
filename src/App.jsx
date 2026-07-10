@@ -1,19 +1,7 @@
-import React, { useRef, useEffect, useState,useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import io from 'socket.io-client';
 import './App.css';
-// import { FaDownload, FaCircle, FaPaintBrush } from "react-icons/fa";
-// import { FiZoomIn, FiZoomOut } from "react-icons/fi";
-// import { SlActionUndo } from "react-icons/sl";
-// import { IoArrowRedoOutline, IoRemoveOutline } from "react-icons/io5";
-// import { LuEraser } from "react-icons/lu";
-// import { FaMagic } from "react-icons/fa";
-// import { MdRectangle, MdOutlineFormatColorFill } from "react-icons/md";
-// import { TbLineDashed } from "react-icons/tb";
-// import { TfiLineDotted } from "react-icons/tfi";
-// import { FaPencil } from "react-icons/fa6";
-// import { AiOutlineDelete } from "react-icons/ai";
-// import { BsType } from "react-icons/bs";
 
 const socket = io('https://drawingsocket-backend.onrender.com', { transports: ['websocket'] });
 
@@ -40,7 +28,7 @@ const App = () => {
   const [layers, setLayers] = useState([{ id: 1, name: 'Layer 1', visible: true, opacity: 1, canvas: null }]);
   const [activeLayer, setActiveLayer] = useState(1);
   const [showGrid, setShowGrid] = useState(false);
-  const [gridSize, setGridSize] = useState(20);
+  const [gridSize] = useState(20); // Fixed: removed unused setter
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ blur: 0, brightness: 100, contrast: 100, saturate: 100 });
   const [useGradient, setUseGradient] = useState(false);
@@ -50,75 +38,10 @@ const App = () => {
   const [showLayerPanel, setShowLayerPanel] = useState(true);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
-  const presetColors = ['#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080'];
-const handleRemoteDrawing = useCallback(({ 
-  x0, 
-  y0, 
-  x1, 
-  y1, 
-  color, 
-  lineWidth,
-  opacity,
-  brushType,
-  shape,
-  text,
-  fontSize,
-  isFilled,
-  fillColor
-}) => {
-  const context = canvasRef.current.getContext('2d');
+  // Fixed: Removed unused presetColors or moved to constants
+  const PRESET_COLORS = ['#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080'];
 
-  if (shape) {
-    drawShape(context, shape, x0, y0, x1, y1, color, lineWidth, opacity, isFilled, fillColor);
-  } else if (text) {
-    drawText(context, text, x0, y0, color, fontSize);
-  } else {
-    drawLine(context, x0, y0, x1, y1, color, lineWidth, opacity, brushType);
-  }
-}, []);
- 
-  useEffect(() => {
-
-  socket.on('drawing', handleRemoteDrawing);
-
-  return () => {
-    socket.off('drawing', handleRemoteDrawing);
-  };
-
-}, [handleRemoteDrawing]);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const context = canvas.getContext('2d');
-    canvas.width = window.innerWidth - 100;
-    canvas.height = window.innerHeight - 50;
-
-    // Initialize with white background
-    context.fillStyle = 'white';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    setHistory([canvas.toDataURL()]);
-
-    socket.on('drawing', handleRemoteDrawing);
-    socket.on('userCount', (count) => setConnectedUsers(count));
-
-    const handleResize = () => {
-      canvas.width = window.innerWidth - 100;
-      canvas.height = window.innerHeight - 50;
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      socket.off('drawing');
-      socket.off('userCount');
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-
-
-  const drawLine = (context, x0, y0, x1, y1, color, lineWidth, opacity, brushType) => {
+  const drawLine = useCallback((context, x0, y0, x1, y1, color, lineWidth, opacity, brushType) => {
     context.beginPath();
     context.moveTo(x0, y0);
     context.lineTo(x1, y1);
@@ -139,9 +62,9 @@ const handleRemoteDrawing = useCallback(({
     context.stroke();
     context.globalAlpha = 1;
     context.closePath();
-  };
+  }, []);
 
-  const drawShape = (context, shape, x0, y0, x1, y1, color, lineWidth, opacity, isFilled = false, fillColor = 'transparent') => {
+  const drawShape = useCallback((context, shape, x0, y0, x1, y1, color, lineWidth, opacity, isFilled = false, fillColor = 'transparent') => {
     context.globalAlpha = opacity;
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
@@ -186,14 +109,117 @@ const handleRemoteDrawing = useCallback(({
         break;
     }
     context.globalAlpha = 1;
-  };
+  }, []);
 
-  const drawText = (context, text, x, y, color, fontSize) => {
+  const drawText = useCallback((context, text, x, y, color, fontSize) => {
     context.font = `${fontSize}px Arial`;
     context.fillStyle = color;
     context.globalAlpha = 1;
     context.fillText(text, x, y);
-  };
+  }, []);
+
+  const drawGrid = useCallback((context, canvas) => {
+    if (!showGrid) return;
+    context.strokeStyle = 'rgba(200, 200, 200, 0.2)';
+    context.lineWidth = 1;
+
+    for (let x = 0; x < canvas.width; x += gridSize) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, canvas.height);
+      context.stroke();
+    }
+
+    for (let y = 0; y < canvas.height; y += gridSize) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(canvas.width, y);
+      context.stroke();
+    }
+  }, [showGrid, gridSize]);
+
+  const createGradient = useCallback((context, x0, y0, x1, y1) => {
+    if (!useGradient) return null;
+    const gradient = context.createLinearGradient(x0, y0, x1, y1);
+    gradient.addColorStop(0, gradientStart);
+    gradient.addColorStop(1, gradientEnd);
+    return gradient;
+  }, [useGradient, gradientStart, gradientEnd]);
+
+  const applyFilters = useCallback((context) => {
+    if (filters.blur === 0 && filters.brightness === 100 && filters.contrast === 100 && filters.saturate === 100) return;
+
+    let filterString = '';
+    if (filters.blur > 0) filterString += `blur(${filters.blur}px) `;
+    filterString += `brightness(${filters.brightness}%) `;
+    filterString += `contrast(${filters.contrast}%) `;
+    filterString += `saturate(${filters.saturate}%) `;
+
+    context.filter = filterString;
+  }, [filters]);
+
+  const captureHistoryThumbnail = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const thumbnail = canvas.toDataURL();
+    setHistoryThumbnails(prev => [...prev, thumbnail]);
+  }, []);
+
+  const handleRemoteDrawing = useCallback(({
+    x0,
+    y0,
+    x1,
+    y1,
+    color,
+    lineWidth,
+    opacity,
+    brushType,
+    shape,
+    text,
+    fontSize,
+    isFilled,
+    fillColor
+  }) => {
+    const context = canvasRef.current?.getContext('2d');
+    if (!context) return;
+
+    if (shape) {
+      drawShape(context, shape, x0, y0, x1, y1, color, lineWidth, opacity, isFilled, fillColor);
+    } else if (text) {
+      drawText(context, text, x0, y0, color, fontSize);
+    } else {
+      drawLine(context, x0, y0, x1, y1, color, lineWidth, opacity, brushType);
+    }
+  }, [drawLine, drawShape, drawText]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const context = canvas.getContext('2d');
+    canvas.width = window.innerWidth - 100;
+    canvas.height = window.innerHeight - 50;
+
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    setHistory([canvas.toDataURL()]);
+
+    socket.on('drawing', handleRemoteDrawing);
+    socket.on('userCount', (count) => setConnectedUsers(count));
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth - 100;
+      canvas.height = window.innerHeight - 50;
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      socket.off('drawing', handleRemoteDrawing);
+      socket.off('userCount');
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [handleRemoteDrawing]);
 
   const handleMouseDown = (event) => {
     if (tool === 'text') {
@@ -270,15 +296,14 @@ const handleRemoteDrawing = useCallback(({
     }
   };
 
-
-  const saveToHistory = () => {
+  const saveToHistory = useCallback(() => {
     const canvas = canvasRef.current;
     const imageData = canvas.toDataURL();
-    setHistory([...history, imageData]);
+    setHistory(prev => [...prev, imageData]);
     setRedoList([]);
-  };
+  }, []);
 
-  const handleTextSubmit = () => {
+  const handleTextSubmit = useCallback(() => {
     if (textInput.trim() === '') return;
 
     const context = canvasRef.current.getContext('2d');
@@ -295,180 +320,139 @@ const handleRemoteDrawing = useCallback(({
     setTextInput('');
     setShowTextInput(false);
     saveToHistory();
-  };
+  }, [textInput, prevPos, color, fontSize, drawText, saveToHistory]);
 
-  const handleToolChange = (newTool) => {
+  const handleToolChange = useCallback((newTool) => {
     setTool(newTool);
     const canvas = canvasRef.current;
     canvas.style.cursor = newTool === 'brush' ? 'crosshair' : 'cell';
-  };
+  }, []);
 
-  const handleEraser = () => {
+  const handleEraser = useCallback(() => {
     setTool('eraser');
     setColor('#FFFFFF');
-  };
+  }, []);
 
-  const handleUndo = () => {
-    if (history.length <= 1) return;
+  const handleUndo = useCallback(() => {
+    setHistory(prev => {
+      if (prev.length <= 1) return prev;
 
-    const newHistory = [...history];
-    const lastState = newHistory.pop();
-    setRedoList([lastState, ...redoList]);
-    setHistory(newHistory);
+      const newHistory = [...prev];
+      const lastState = newHistory.pop();
+      setRedoList(old => [lastState, ...old]);
 
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    const image = new Image();
-    image.src = newHistory[newHistory.length - 1];
-    image.onload = () => {
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0);
-    };
-  };
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      const image = new Image();
+      image.src = newHistory[newHistory.length - 1];
+      image.onload = () => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0);
+      };
 
-  const handleRedo = () => {
-    if (redoList.length === 0) return;
+      return newHistory;
+    });
+  }, []);
 
-    const newRedoList = [...redoList];
-    const nextState = newRedoList.shift();
-    setHistory([...history, nextState]);
-    setRedoList(newRedoList);
+  const handleRedo = useCallback(() => {
+    setRedoList(prev => {
+      if (prev.length === 0) return prev;
 
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    const image = new Image();
-    image.src = nextState;
-    image.onload = () => {
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0);
-    };
-  };
+      const newRedoList = [...prev];
+      const nextState = newRedoList.shift();
+      setHistory(old => [...old, nextState]);
 
-  const handleClearAll = () => {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      const image = new Image();
+      image.src = nextState;
+      image.onload = () => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0);
+      };
+
+      return newRedoList;
+    });
+  }, []);
+
+  const handleClearAll = useCallback(() => {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     context.fillStyle = 'white';
     context.fillRect(0, 0, canvas.width, canvas.height);
     setHistory([canvas.toDataURL()]);
     setRedoList([]);
-  };
+  }, []);
 
-  const handleDownload = () => {
+  const handleDownload = useCallback(() => {
     const canvas = canvasRef.current;
     const link = document.createElement('a');
     link.download = `drawing-${new Date().toISOString()}.png`;
     link.href = canvas.toDataURL();
     link.click();
-  };
+  }, []);
 
-  const handleResetZoom = () => setScale(1);
-
-  const handleZoomIn = () => setScale(prev => Math.min(prev + 0.1, 3));
-  const handleZoomOut = () => setScale(prev => Math.max(prev - 0.1, 0.2));
-
-  // ============ ADVANCED FEATURES ============
+  const handleResetZoom = useCallback(() => setScale(1), []);
+  const handleZoomIn = useCallback(() => setScale(prev => Math.min(prev + 0.1, 3)), []);
+  const handleZoomOut = useCallback(() => setScale(prev => Math.max(prev - 0.1, 0.2)), []);
 
   // LAYER MANAGEMENT
-  const addLayer = () => {
-    const newId = Math.max(...layers.map(l => l.id), 0) + 1;
-    const newLayer = {
-      id: newId,
-      name: `Layer ${newId}`,
-      visible: true,
-      opacity: 1,
-      canvas: null
-    };
-    setLayers([...layers, newLayer]);
-    setActiveLayer(newId);
-  };
+  const addLayer = useCallback(() => {
+    setLayers(prev => {
+      const newId = Math.max(...prev.map(l => l.id), 0) + 1;
+      const newLayer = {
+        id: newId,
+        name: `Layer ${newId}`,
+        visible: true,
+        opacity: 1,
+        canvas: null
+      };
+      return [...prev, newLayer];
+    });
+    setActiveLayer(prev => prev + 1);
+  }, []);
 
-  const deleteLayer = (id) => {
-    if (layers.length === 1) return;
-    setLayers(layers.filter(l => l.id !== id));
-    if (activeLayer === id) {
-      setActiveLayer(layers[0].id);
-    }
-  };
+  const deleteLayer = useCallback((id) => {
+    setLayers(prev => {
+      if (prev.length === 1) return prev;
+      const newLayers = prev.filter(l => l.id !== id);
+      if (activeLayer === id) {
+        setActiveLayer(newLayers[0].id);
+      }
+      return newLayers;
+    });
+  }, [activeLayer]);
 
-  const renameLayer = (id, newName) => {
-    setLayers(layers.map(l => l.id === id ? { ...l, name: newName } : l));
-  };
+  const renameLayer = useCallback((id, newName) => {
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, name: newName } : l));
+  }, []);
 
-  const toggleLayerVisibility = (id) => {
-    setLayers(layers.map(l => l.id === id ? { ...l, visible: !l.visible } : l));
-  };
+  const toggleLayerVisibility = useCallback((id) => {
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, visible: !l.visible } : l));
+  }, []);
 
-  const setLayerOpacity = (id, opacityValue) => {
-    setLayers(layers.map(l => l.id === id ? { ...l, opacity: opacityValue } : l));
-  };
+  const setLayerOpacity = useCallback((id, opacityValue) => {
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, opacity: opacityValue } : l));
+  }, []);
 
-  const reorderLayers = (id, direction) => {
-    const index = layers.findIndex(l => l.id === id);
-    if ((direction === 'up' && index === layers.length - 1) || (direction === 'down' && index === 0)) return;
+  const reorderLayers = useCallback((id, direction) => {
+    setLayers(prev => {
+      const index = prev.findIndex(l => l.id === id);
+      if ((direction === 'up' && index === prev.length - 1) || (direction === 'down' && index === 0)) return prev;
 
-    const newLayers = [...layers];
-    if (direction === 'up') {
-      [newLayers[index], newLayers[index + 1]] = [newLayers[index + 1], newLayers[index]];
-    } else {
-      [newLayers[index], newLayers[index - 1]] = [newLayers[index - 1], newLayers[index]];
-    }
-    setLayers(newLayers);
-  };
+      const newLayers = [...prev];
+      if (direction === 'up') {
+        [newLayers[index], newLayers[index + 1]] = [newLayers[index + 1], newLayers[index]];
+      } else {
+        [newLayers[index], newLayers[index - 1]] = [newLayers[index - 1], newLayers[index]];
+      }
+      return newLayers;
+    });
+  }, []);
 
-  // GRID AND GUIDES
-  const drawGrid = (context, canvas) => {
-    if (!showGrid) return;
-    context.strokeStyle = 'rgba(200, 200, 200, 0.2)';
-    context.lineWidth = 1;
-
-    for (let x = 0; x < canvas.width; x += gridSize) {
-      context.beginPath();
-      context.moveTo(x, 0);
-      context.lineTo(x, canvas.height);
-      context.stroke();
-    }
-
-    for (let y = 0; y < canvas.height; y += gridSize) {
-      context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(canvas.width, y);
-      context.stroke();
-    }
-  };
-
-  // GRADIENT FILLS
-  const createGradient = (context, x0, y0, x1, y1) => {
-    if (!useGradient) return null;
-    const gradient = context.createLinearGradient(x0, y0, x1, y1);
-    gradient.addColorStop(0, gradientStart);
-    gradient.addColorStop(1, gradientEnd);
-    return gradient;
-  };
-
-  // FILTERS AND EFFECTS
-  const applyFilters = (context, canvas) => {
-    if (filters.blur === 0 && filters.brightness === 100 && filters.contrast === 100 && filters.saturate === 100) return;
-
-    let filterString = '';
-    if (filters.blur > 0) filterString += `blur(${filters.blur}px) `;
-    filterString += `brightness(${filters.brightness}%) `;
-    filterString += `contrast(${filters.contrast}%) `;
-    filterString += `saturate(${filters.saturate}%) `;
-
-    context.filter = filterString;
-  };
-
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilters({ blur: 0, brightness: 100, contrast: 100, saturate: 100 });
-  };
-
-  // HISTORY THUMBNAILS
-  const captureHistoryThumbnail = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const thumbnail = canvas.toDataURL();
-    setHistoryThumbnails([...historyThumbnails, thumbnail]);}
- 
+  }, []);
 
   // KEYBOARD SHORTCUTS
   useEffect(() => {
@@ -487,33 +471,28 @@ const handleRemoteDrawing = useCallback(({
       if (e.key === 'r') handleToolChange('rectangle');
       if (e.key === 'c') handleToolChange('circle');
       if (e.key === 'l') handleToolChange('line');
-      if (e.key === 'g') setShowGrid(!showGrid);
+      if (e.key === 'g') setShowGrid(prev => !prev);
       if (e.key === '+' || e.key === '=') handleZoomIn();
       if (e.key === '-') handleZoomOut();
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [showGrid]);
-
-  // ============ END ADVANCED FEATURES ============
+  }, [handleUndo, handleRedo, handleDownload, handleClearAll, handleToolChange, handleEraser, handleZoomIn, handleZoomOut]);
 
   return (
     <div className="App d-flex" style={{ height: '100vh' }}>
       {/* Main Toolbar */}
       <div className="toolbar d-flex flex-column p-3">
-        {/* User Count */}
         <div className="text-light text-center mb-3 p-2 rounded" style={{ fontSize: '12px', backgroundColor: '#34495E' }}>
           👥 {connectedUsers}
         </div>
 
-        {/* Color Tools */}
         <div className="mb-3">
           <label className="text-light" style={{ fontSize: '12px' }}>Pen</label>
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-100" />
         </div>
 
-        {/* Fill Color */}
         <div className="mb-3">
           <label className="text-light" style={{ fontSize: '12px' }}>Fill</label>
           <input type="color" value={fillColor} onChange={(e) => setFillColor(e.target.value)} className="w-100" />
@@ -531,7 +510,6 @@ const handleRemoteDrawing = useCallback(({
           </div>
         </div>
 
-        {/* Gradient Toggle */}
         <div className="mb-3">
           <div className="form-check">
             <input
@@ -553,7 +531,6 @@ const handleRemoteDrawing = useCallback(({
           )}
         </div>
 
-        {/* Size */}
         <div className="mb-3">
           <label className="text-light" style={{ fontSize: '12px' }}>Size</label>
           <input
@@ -567,7 +544,6 @@ const handleRemoteDrawing = useCallback(({
           <small className="text-light">{lineWidth}px</small>
         </div>
 
-        {/* Opacity */}
         <div className="mb-3">
           <label className="text-light" style={{ fontSize: '12px' }}>Opacity</label>
           <input
@@ -581,7 +557,6 @@ const handleRemoteDrawing = useCallback(({
           />
         </div>
 
-        {/* Brush Type */}
         <div className="mb-3">
           <label className="text-light" style={{ fontSize: '12px' }}>Brush</label>
           <select
@@ -596,7 +571,6 @@ const handleRemoteDrawing = useCallback(({
           </select>
         </div>
 
-        {/* Font Size */}
         <div className="mb-3">
           <label className="text-light" style={{ fontSize: '12px' }}>Font</label>
           <input
@@ -612,7 +586,6 @@ const handleRemoteDrawing = useCallback(({
 
         <hr className="bg-light" />
 
-        {/* Tool Buttons */}
         <div className="tool-buttons d-flex flex-column gap-2">
           <button
             className={`btn btn-sm ${tool === 'brush' ? 'btn-primary' : 'btn-secondary'}`}
@@ -669,31 +642,30 @@ const handleRemoteDrawing = useCallback(({
 
           <hr className="bg-light" />
 
-          {/* Advanced Tools */}
           <button
             className={`btn btn-sm ${showGrid ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setShowGrid(!showGrid)}
+            onClick={() => setShowGrid(prev => !prev)}
             title="Toggle Grid (G)"
           >
             ⊞
           </button>
           <button
             className={`btn btn-sm ${showFilters ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={() => setShowFilters(prev => !prev)}
             title="Filters"
           >
             🎨
           </button>
           <button
             className={`btn btn-sm ${showLayerPanel ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setShowLayerPanel(!showLayerPanel)}
+            onClick={() => setShowLayerPanel(prev => !prev)}
             title="Layers"
           >
             📚
           </button>
           <button
             className={`btn btn-sm btn-secondary`}
-            onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+            onClick={() => setShowHistoryPanel(prev => !prev)}
             title="History"
           >
             🕐
@@ -702,8 +674,7 @@ const handleRemoteDrawing = useCallback(({
           <hr className="bg-light" />
 
           <button className="btn btn-sm btn-warning" onClick={handleUndo} title="Undo (Ctrl+Z)">
-            ↶
-          </button>
+            ↶          </button>
           <button className="btn btn-sm btn-warning" onClick={handleRedo} title="Redo (Ctrl+Y)">
             ↷
           </button>
@@ -717,7 +688,7 @@ const handleRemoteDrawing = useCallback(({
             🔍+
           </button>
           <button className="btn btn-sm btn-info" onClick={handleZoomOut} title="Zoom Out (-)">
-            🔍-
+            🔍 -
           </button>
           <button className="btn btn-sm btn-info" onClick={handleResetZoom} title="Reset Zoom">
             100%
@@ -802,7 +773,7 @@ const handleRemoteDrawing = useCallback(({
                 min="0"
                 max="20"
                 value={filters.blur}
-                onChange={(e) => setFilters({ ...filters, blur: parseInt(e.target.value) })}
+                onChange={(e) => setFilters(prev => ({ ...prev, blur: parseInt(e.target.value) }))}
                 style={{ width: '100%' }}
               />
             </div>
@@ -813,7 +784,7 @@ const handleRemoteDrawing = useCallback(({
                 min="50"
                 max="150"
                 value={filters.brightness}
-                onChange={(e) => setFilters({ ...filters, brightness: parseInt(e.target.value) })}
+                onChange={(e) => setFilters(prev => ({ ...prev, brightness: parseInt(e.target.value) }))}
                 style={{ width: '100%' }}
               />
             </div>
@@ -824,7 +795,7 @@ const handleRemoteDrawing = useCallback(({
                 min="50"
                 max="150"
                 value={filters.contrast}
-                onChange={(e) => setFilters({ ...filters, contrast: parseInt(e.target.value) })}
+                onChange={(e) => setFilters(prev => ({ ...prev, contrast: parseInt(e.target.value) }))}
                 style={{ width: '100%' }}
               />
             </div>
@@ -835,7 +806,7 @@ const handleRemoteDrawing = useCallback(({
                 min="0"
                 max="200"
                 value={filters.saturate}
-                onChange={(e) => setFilters({ ...filters, saturate: parseInt(e.target.value) })}
+                onChange={(e) => setFilters(prev => ({ ...prev, saturate: parseInt(e.target.value) }))}
                 style={{ width: '100%' }}
               />
             </div>
@@ -879,7 +850,7 @@ const handleRemoteDrawing = useCallback(({
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Enter text..."
+                  placeholder="Enter text.."
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   autoFocus
@@ -918,7 +889,6 @@ const handleRemoteDrawing = useCallback(({
       </div>
     </div>
   );
- 
-}
+};
+
 export default App;
- 
